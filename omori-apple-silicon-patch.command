@@ -10,7 +10,19 @@ echo "|             https://snowp.io              |"
 echo "\\-------------------------------------------/"
 echo ""
 
-OMORI=~/Library/Application\ Support/Steam/steamapps/common/OMORI
+# Files from lib/ are taken from the folder next to this script when it is there (a clone or ZIP of
+# the repository) and downloaded from the repository otherwise. OMORI_DIR overrides the game folder.
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+LIB_URL=https://raw.githubusercontent.com/SnowpMakes/omori-apple-silicon/master/lib
+OMORI="${OMORI_DIR:-$HOME/Library/Application Support/Steam/steamapps/common/OMORI}"
+
+get_lib() {
+  if [ -f "${SCRIPT_DIR}/lib/$1" ]; then
+    cp "${SCRIPT_DIR}/lib/$1" "./$1";
+  else
+    curl -#fL -o "$1" "${LIB_URL}/$1";
+  fi;
+}
 
 if [ ! -d "${OMORI}" ] || [ ! -d "${OMORI}/OMORI.app" ]; then
   echo "[!!] Please install OMORI using Steam before using this tool.";
@@ -30,10 +42,12 @@ mv "${OMORI}/OMORI.app" "./OMORI.original.app";
 
 echo "Downloading nwjs.."
 curl -#L -o nwjs.zip https://dl.nwjs.io/v0.77.0/nwjs-v0.77.0-osx-arm64.zip
-echo "Downloading node polyfill patch.."
-curl -#L -o node-polyfill-patch.js https://github.com/SnowpMakes/omori-apple-silicon/releases/download/v1.1.0/node-polyfill-patch.js
+echo "Getting node polyfill patch and fullscreen fix.."
+get_lib node-polyfill-patch.js
+get_lib fullscreen-fix.js
+get_lib arm64-fullscreen-mod.json
 echo "Downloading greenworks patches.."
-curl -#L -o greenworks.js https://github.com/SnowpMakes/omori-apple-silicon/releases/download/v1.1.0/greenworks.js
+get_lib greenworks.js
 curl -#L -o greenworks-osxarm64.node https://github.com/SnowpMakes/greenworks-arm64/releases/download/v1.0.0/greenworks-osxarm64.node
 echo "Downloading steamworks api.."
 curl -# -o steam.zip https://dl.snowp.io/omori-apple-silicon/steam.zip
@@ -52,6 +66,21 @@ mv -f ./greenworks.js ./OMORI.app/Contents/Resources/app.nw/js/libs/
 mv -f ./greenworks-osxarm64.node ./OMORI.app/Contents/Resources/app.nw/js/libs/
 mv -f ./steam/libsteam_api.dylib ./OMORI.app/Contents/Resources/app.nw/js/libs/
 mv -f ./steam/libsdkencryptedappticket.dylib ./OMORI.app/Contents/Resources/app.nw/js/libs/
+
+echo "Installing fullscreen fix.."
+NW=./OMORI.app/Contents/Resources/app.nw
+if [ -d "${NW}/modloader" ]; then
+  # OneLoader/77Loader replace index.html, so the fix goes in as a mod.
+  mkdir -p "${NW}/mods/arm64_fullscreen"
+  mv -f ./fullscreen-fix.js "${NW}/mods/arm64_fullscreen/arm64_fullscreen.js"
+  mv -f ./arm64-fullscreen-mod.json "${NW}/mods/arm64_fullscreen/mod.json"
+else
+  mv -f ./fullscreen-fix.js "${NW}/js/libs/"
+  if ! grep -q 'js/libs/fullscreen-fix.js' "${NW}/index.html"; then
+    awk '{ print } /src="js\/main.js"/ { cr = (substr($0, length($0)) == "\r") ? "\r" : ""; print "    <script type=\"text/javascript\" src=\"js/libs/fullscreen-fix.js\"></script>" cr }' "${NW}/index.html" > ./index.html
+    mv -f ./index.html "${NW}/index.html"
+  fi;
+fi;
 
 echo "Finished. Moving patched game back to original location.."
 mv "./OMORI.app" "${OMORI}/OMORI.app"

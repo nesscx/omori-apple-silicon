@@ -1,0 +1,19 @@
+{
+    "$schema": "https://rph.space/oneloader.manifestv1.schema.json",
+    "id": "arm64_fullscreen",
+    "name": "Apple silicon patch: fullscreen fix",
+    "description": "Keeps fullscreen on with nw.js 0.77.0 on macOS and scales the game to the largest 4:3 size that fits (F3 toggles stretching). Installed by omori-apple-silicon-patch.command.",
+    "manifestVersion": 1,
+    "version": "1.0.0",
+    "files": {
+        "plugins": [
+            "arm64_fullscreen.js"
+        ]
+    },
+    "plugins_ordered": {
+        "arm64_fullscreen": {
+            "at": -1,
+            "weight": -100
+        }
+    }
+}
